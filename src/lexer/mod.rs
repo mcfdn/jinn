@@ -53,18 +53,18 @@ impl<'a> Lexer<'a> {
 
         match ch {
             Some(ch) => match ch {
-                '(' => Ok(Token::new(TokenKind::LeftParen)),
-                ')' => Ok(Token::new(TokenKind::RightParen)),
-                '{' => Ok(Token::new(TokenKind::LeftBrace)),
-                '}' => Ok(Token::new(TokenKind::RightBrace)),
-                '[' => Ok(Token::new(TokenKind::LeftSquare)),
-                ']' => Ok(Token::new(TokenKind::RightSquare)),
-                ',' => Ok(Token::new(TokenKind::Comma)),
-                '.' => Ok(Token::new(TokenKind::Dot)),
-                '+' => Ok(Token::new(TokenKind::Plus)),
-                ':' => Ok(Token::new(TokenKind::Colon)),
-                ';' => Ok(Token::new(TokenKind::Semicolon)),
-                '*' => Ok(Token::new(TokenKind::Asterisk)),
+                '(' => Ok(self.create_token(TokenKind::LeftParen)),
+                ')' => Ok(self.create_token(TokenKind::RightParen)),
+                '{' => Ok(self.create_token(TokenKind::LeftBrace)),
+                '}' => Ok(self.create_token(TokenKind::RightBrace)),
+                '[' => Ok(self.create_token(TokenKind::LeftSquare)),
+                ']' => Ok(self.create_token(TokenKind::RightSquare)),
+                ',' => Ok(self.create_token(TokenKind::Comma)),
+                '.' => Ok(self.create_token(TokenKind::Dot)),
+                '+' => Ok(self.create_token(TokenKind::Plus)),
+                ':' => Ok(self.create_token(TokenKind::Colon)),
+                ';' => Ok(self.create_token(TokenKind::Semicolon)),
+                '*' => Ok(self.create_token(TokenKind::Asterisk)),
 
                 '!' => Ok(self.lex_bang_or_bang_equal()),
                 '=' => Ok(self.lex_equal_or_equal_equal()),
@@ -89,7 +89,7 @@ impl<'a> Lexer<'a> {
                 _ => Err(self.report_lex_error("unexpected lexeme")),
             },
 
-            None => Ok(Token::new(TokenKind::Eof)),
+            None => Ok(self.create_token(TokenKind::Eof)),
         }
     }
 
@@ -155,9 +155,7 @@ impl<'a> Lexer<'a> {
         if found_decimal_point {
             // Floating point number.
             return if let Ok(parsed_literal) = literal.parse::<f64>() {
-                Ok(Token::new(TokenKind::Literal(LiteralKind::Float(
-                    parsed_literal,
-                ))))
+                Ok(self.create_token(TokenKind::Literal(LiteralKind::Float(parsed_literal))))
             } else {
                 Err(self.report_lex_error("unable to parse float"))
             };
@@ -165,9 +163,7 @@ impl<'a> Lexer<'a> {
 
         // Integer.
         if let Ok(parsed_literal) = literal.parse::<i64>() {
-            Ok(Token::new(TokenKind::Literal(LiteralKind::Int(
-                parsed_literal,
-            ))))
+            Ok(self.create_token(TokenKind::Literal(LiteralKind::Int(parsed_literal))))
         } else {
             Err(self.report_lex_error("unable to parse unsigned integer"))
         }
@@ -193,7 +189,7 @@ impl<'a> Lexer<'a> {
         // Eat the closing quote.
         self.advance();
 
-        Ok(Token::new(TokenKind::Literal(LiteralKind::String(
+        Ok(self.create_token(TokenKind::Literal(LiteralKind::String(
             self.source[self.token_start_pos + 1..self.current_pos].to_string(),
         ))))
     }
@@ -201,7 +197,7 @@ impl<'a> Lexer<'a> {
     fn lex_slash_or_eat_comment(&mut self) -> Result<Token, LexerError> {
         // If we don't find another '/', return a Slash token.
         if !self.advance_if('/') {
-            return Ok(Token::new(TokenKind::Slash));
+            return Ok(self.create_token(TokenKind::Slash));
         }
 
         // We found another '/', so treat everything up to a newline as a comment.
@@ -226,54 +222,54 @@ impl<'a> Lexer<'a> {
         let lexeme = &self.source[self.token_start_pos..=self.current_pos];
 
         if lexeme == "true" {
-            return Token::new(TokenKind::Literal(LiteralKind::Boolean(true)));
+            return self.create_token(TokenKind::Literal(LiteralKind::Boolean(true)));
         }
 
         if lexeme == "false" {
-            return Token::new(TokenKind::Literal(LiteralKind::Boolean(false)));
+            return self.create_token(TokenKind::Literal(LiteralKind::Boolean(false)));
         }
 
         if let Some(keyword) = keyword_from_str(lexeme) {
-            return Token::new(TokenKind::Keyword(keyword));
+            return self.create_token(TokenKind::Keyword(keyword));
         }
 
         if let Some(type_annotation) = type_annotation_from_str(lexeme) {
-            return Token::new(TokenKind::TypeAnnotation(type_annotation));
+            return self.create_token(TokenKind::TypeAnnotation(type_annotation));
         }
 
-        Token::new(TokenKind::Ident(lexeme.to_string()))
+        self.create_token(TokenKind::Ident(lexeme.to_string()))
     }
 
     fn lex_bang_or_bang_equal(&mut self) -> Token {
         if self.advance_if('=') {
-            return Token::new(TokenKind::BangEqual);
+            return self.create_token(TokenKind::BangEqual);
         }
 
-        Token::new(TokenKind::Bang)
+        self.create_token(TokenKind::Bang)
     }
 
     fn lex_equal_or_equal_equal(&mut self) -> Token {
         if self.advance_if('=') {
-            return Token::new(TokenKind::EqualEqual);
+            return self.create_token(TokenKind::EqualEqual);
         }
 
-        Token::new(TokenKind::Equal)
+        self.create_token(TokenKind::Equal)
     }
 
     fn lex_greater_or_greater_equal(&mut self) -> Token {
         if self.advance_if('=') {
-            return Token::new(TokenKind::GreaterEqual);
+            return self.create_token(TokenKind::GreaterEqual);
         }
 
-        Token::new(TokenKind::Greater)
+        self.create_token(TokenKind::Greater)
     }
 
     fn lex_less_or_less_equal(&mut self) -> Token {
         if self.advance_if('=') {
-            return Token::new(TokenKind::LessEqual);
+            return self.create_token(TokenKind::LessEqual);
         }
 
-        Token::new(TokenKind::Less)
+        self.create_token(TokenKind::Less)
     }
 
     fn lex_minus_or_number(&mut self) -> Result<Token, LexerError> {
@@ -283,7 +279,7 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        Ok(Token::new(TokenKind::Minus))
+        Ok(self.create_token(TokenKind::Minus))
     }
 
     fn lex_and(&mut self) -> Result<Token, LexerError> {
@@ -291,7 +287,7 @@ impl<'a> Lexer<'a> {
             return Err(self.report_unexpected_char('&'));
         }
 
-        Ok(Token::new(TokenKind::And))
+        Ok(self.create_token(TokenKind::And))
     }
 
     fn lex_or(&mut self) -> Result<Token, LexerError> {
@@ -299,7 +295,11 @@ impl<'a> Lexer<'a> {
             return Err(self.report_unexpected_char('|'));
         }
 
-        Ok(Token::new(TokenKind::Or))
+        Ok(self.create_token(TokenKind::Or))
+    }
+
+    fn create_token(&self, kind: TokenKind) -> Token {
+        Token::new(kind, self.current_line, self.current_col)
     }
 
     fn report_unexpected_char(&mut self, expected: char) -> LexerError {
@@ -307,7 +307,7 @@ impl<'a> Lexer<'a> {
             expected,
             actual: self.peek().unwrap_or(NUL_BYTE),
             line: self.current_line,
-            col: self.current_col,
+            col: self.current_col - 1,
         }
     }
 

@@ -1,5 +1,8 @@
 // A simple input to test with.
-fn foo(a: int, b: int) int {
+fn foo(a: int, b: int): int {
     let y = a + b * 5;
-    y
+}
+
+fn foo_2() {
+    // Nothing here!
 }
