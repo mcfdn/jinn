@@ -189,8 +189,10 @@ impl<'a> Lexer<'a> {
         // Eat the closing quote.
         self.advance();
 
+        let string_literal = self.source[self.token_start_pos + 1..self.current_pos].to_string();
+
         Ok(self.create_token(TokenKind::Literal(LiteralKind::String(
-            self.source[self.token_start_pos + 1..self.current_pos].to_string(),
+            Lexer::unescape_string(&string_literal),
         ))))
     }
 
@@ -338,6 +340,11 @@ impl<'a> Lexer<'a> {
     fn is_alphanum(ch: char) -> bool {
         Self::is_alpha(ch) || Self::is_digit(ch)
     }
+
+    fn unescape_string(str: &str) -> String {
+        // TODO: Handle all sequences.
+        str.replace("\\n", "\n")
+    }
 }
 
 #[cfg(test)]
@@ -360,7 +367,8 @@ mod tests {
 +-/*
 ! != = == > >= < <=
 && ||
-fn if else for let return true false
+fn if else for let return print
+true false
 "my string"
 "multi-
 line string"
@@ -409,6 +417,7 @@ string
             TokenKind::Keyword(KeywordKind::For),
             TokenKind::Keyword(KeywordKind::Let),
             TokenKind::Keyword(KeywordKind::Return),
+            TokenKind::Keyword(KeywordKind::Print),
             TokenKind::Literal(LiteralKind::Boolean(true)),
             TokenKind::Literal(LiteralKind::Boolean(false)),
             TokenKind::Literal(LiteralKind::String("my string".to_string())),

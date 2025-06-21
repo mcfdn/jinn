@@ -1,8 +1,9 @@
 use std::fs;
 
-use crate::{errors::JinnError, lexer::Lexer, parser::Parser};
+use crate::{errors::JinnError, interpreter::Interpreter, lexer::Lexer, parser::Parser};
 
 pub mod errors;
+pub mod interpreter;
 pub mod lexer;
 pub mod parser;
 
@@ -15,7 +16,8 @@ fn main() -> Result<(), JinnError> {
     let mut parser = Parser::new(tokens);
     let ast = parser.parse()?;
 
-    println!("{:#?}", ast);
+    let mut interpreter = Interpreter::default();
+    interpreter.interpret(ast)?;
 
     Ok(())
 }

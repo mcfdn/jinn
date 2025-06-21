@@ -8,6 +8,7 @@ static KEYWORDS: LazyLock<HashMap<&'static str, KeywordKind>> = LazyLock::new(||
     keywords.insert("for", KeywordKind::For);
     keywords.insert("let", KeywordKind::Let);
     keywords.insert("return", KeywordKind::Return);
+    keywords.insert("print", KeywordKind::Print);
 
     keywords
 });
@@ -30,6 +31,7 @@ pub enum KeywordKind {
     For,
     Let,
     Return,
+    Print,
 }
 
 #[derive(Clone, Debug, PartialEq)]

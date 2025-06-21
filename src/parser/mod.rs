@@ -3,7 +3,7 @@ use crate::{
     parser::{
         ast::{
             Assign, Binary, BlockStmt, Call, Expr, ForStmt, Function, FunctionParam, Grouping,
-            IfStmt, LetStmt, Literal, Stmt, Unary, Variable,
+            IfStmt, LetStmt, Literal, PrintStmt, Stmt, Unary, Variable,
         },
         errors::ParserError,
     },
@@ -151,6 +151,11 @@ impl Parser {
 
                 Ok(Stmt::Block(BlockStmt::new(block_statements)))
             }
+            TokenKind::Keyword(KeywordKind::Print) => {
+                self.advance();
+
+                self.parse_print_stmt()
+            }
             _ => self.parse_expression_statement(),
         }
     }
@@ -173,6 +178,16 @@ impl Parser {
         }
 
         Ok(Stmt::If(IfStmt::new(condition, then_branch, else_branch)))
+    }
+
+    fn parse_print_stmt(&mut self) -> Result<Stmt, ParserError> {
+        let expr = self.parse_expression()?;
+
+        if !self.advance_if(&TokenKind::Semicolon) {
+            return Err(self.report_parse_error("expected ; after statement"));
+        }
+
+        Ok(Stmt::Print(PrintStmt::new(expr)))
     }
 
     fn parse_block_statements(&mut self) -> Result<Vec<Stmt>, ParserError> {
