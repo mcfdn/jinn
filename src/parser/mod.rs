@@ -275,16 +275,15 @@ impl Parser {
     }
 
     fn parse_term(&mut self) -> Result<Expr, ParserError> {
-        let expr = self.parse_factor()?;
-        let next_token = self.peek();
+        let mut expr = self.parse_factor()?;
 
-        if let TokenKind::Plus | TokenKind::Minus = next_token.kind {
+        while matches!(self.peek().kind, TokenKind::Plus | TokenKind::Minus) {
             self.advance();
 
             let operator = self.previous().clone();
             let right = self.parse_factor()?;
 
-            return Ok(Expr::Binary(Binary::new(expr, operator, right)));
+            expr = Expr::Binary(Binary::new(expr, operator, right))
         }
 
         Ok(expr)

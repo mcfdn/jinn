@@ -2,6 +2,7 @@
 print "=== string concat ===\n";
 let my_var = "hello," + " world!";
 print my_var + "\n";
+print "one " + "two " + " three\n";
 
 // Arithmetic.
 print "\n=== arithmetic ===\n";
