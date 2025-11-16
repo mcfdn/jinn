@@ -3,7 +3,7 @@ use crate::{
     parser::{
         ast::{
             Assign, Binary, BlockStmt, Call, Expr, ForStmt, Function, FunctionParam, Grouping,
-            IfStmt, LetStmt, Literal, PrintStmt, Stmt, Unary, Variable,
+            IfStmt, LetStmt, Literal, PrintStmt, ReturnStmt, Stmt, Unary, Variable,
         },
         errors::ParserError,
     },
@@ -156,6 +156,11 @@ impl Parser {
 
                 self.parse_print_stmt()
             }
+            TokenKind::Keyword(KeywordKind::Return) => {
+                self.advance();
+
+                self.parse_return_stmt()
+            }
             _ => self.parse_expression_statement(),
         }
     }
@@ -188,6 +193,20 @@ impl Parser {
         }
 
         Ok(Stmt::Print(PrintStmt::new(expr)))
+    }
+
+    fn parse_return_stmt(&mut self) -> Result<Stmt, ParserError> {
+        let mut value: Option<Expr> = None;
+
+        if self.peek().kind != TokenKind::Semicolon {
+            value = Some(self.parse_expression()?)
+        }
+
+        if !self.advance_if(&TokenKind::Semicolon) {
+            return Err(self.report_parse_error("expected ; after return statement"));
+        }
+
+        Ok(Stmt::Return(ReturnStmt::new(value)))
     }
 
     fn parse_block_statements(&mut self) -> Result<Vec<Stmt>, ParserError> {
@@ -375,7 +394,10 @@ impl Parser {
             }
             TokenKind::Ident(_) => Ok(Expr::Variable(Variable::new(next_token.clone()))),
 
-            _ => Err(self.report_parse_error("expected expression")),
+            _ => {
+                println!("{:#?}", next_token.kind);
+                Err(self.report_parse_error("expected expression"))
+            }
         }
     }
 

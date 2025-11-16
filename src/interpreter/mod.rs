@@ -1,16 +1,25 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     interpreter::{errors::InterpreterError, value::Value},
     lexer::token::TokenKind,
     parser::ast::{
-        Assign, Binary, BlockStmt, Call, Expr, ForStmt, Function, IfStmt, LetStmt, Literal, Stmt,
-        Unary, Variable,
+        Assign, Binary, BlockStmt, Call, Expr, ForStmt, Function, IfStmt, LetStmt, Literal,
+        ReturnStmt, Stmt, Unary, Variable,
     },
 };
 
 pub mod errors;
 pub mod value;
+
+// ExecSignal represents the result of executing a statement or block, and signals how the
+// evaluation should be propagated up the call stack.
+enum ExecSignal {
+    // Normal indicates that execution completed without a return statement.
+    Normal,
+    // Return represents a return from a function or other block, optionally containing a value.
+    Return(Option<Value>),
+}
 
 pub struct Interpreter {
     scopes: Vec<HashMap<String, Option<Value>>>,
@@ -19,7 +28,7 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         let mut scopes = Vec::new();
-        scopes.insert(0, HashMap::new());
+        scopes.push(HashMap::new());
 
         Self { scopes }
     }
@@ -32,29 +41,25 @@ impl Interpreter {
         Ok(())
     }
 
-    fn execute(&mut self, statement: &Stmt) -> Result<(), InterpreterError> {
+    fn execute(&mut self, statement: &Stmt) -> Result<ExecSignal, InterpreterError> {
         match statement {
             Stmt::Expression(expression) => {
                 self.evaluate(expression)?;
+                Ok(ExecSignal::Normal)
             }
             Stmt::Let(let_stmt) => {
                 self.execute_let_statement(let_stmt)?;
+                Ok(ExecSignal::Normal)
             }
-            Stmt::If(if_stmt) => {
-                self.execute_if_statement(if_stmt)?;
-            }
-            Stmt::Block(block) => {
-                self.execute_block_statement(block)?;
-            }
-            Stmt::For(for_stmt) => {
-                self.execute_for_statement(for_stmt)?;
-            }
+            Stmt::If(if_stmt) => self.execute_if_statement(if_stmt),
+            Stmt::Block(block) => self.execute_block_statement(block),
+            Stmt::For(for_stmt) => self.execute_for_statement(for_stmt),
             Stmt::Print(print) => {
                 print!("{}", self.evaluate(&print.expr)?);
+                Ok(ExecSignal::Normal)
             }
-        };
-
-        Ok(())
+            Stmt::Return(return_stmt) => self.execute_return_statement(return_stmt),
+        }
     }
 
     fn execute_let_statement(&mut self, let_stmt: &LetStmt) -> Result<(), InterpreterError> {
@@ -70,44 +75,66 @@ impl Interpreter {
         }
     }
 
-    fn execute_if_statement(&mut self, if_stmt: &IfStmt) -> Result<(), InterpreterError> {
+    fn execute_if_statement(&mut self, if_stmt: &IfStmt) -> Result<ExecSignal, InterpreterError> {
         let evaluation = self.evaluate(&if_stmt.condition)?;
 
         if let Value::Boolean(b) = evaluation {
             if b {
                 // True.
                 self.execute(&if_stmt.then_branch)
-            } else if let Some(else_branch) = if_stmt.else_branch.clone() {
+            } else if let Some(ref else_branch) = if_stmt.else_branch {
                 // False, and we found an else branch.
-                self.execute(&else_branch)
+                self.execute(else_branch)
             } else {
                 // False, but no else branch.
-                Ok(())
+                Ok(ExecSignal::Normal)
             }
         } else {
             Err(self.report_runtime_error("unexpected non-bool when executing if statement"))
         }
     }
 
-    fn execute_block_statement(&mut self, block: &BlockStmt) -> Result<(), InterpreterError> {
+    fn execute_block_statement(
+        &mut self,
+        block: &BlockStmt,
+    ) -> Result<ExecSignal, InterpreterError> {
         self.push_scope();
-
-        for statement in &block.statements {
-            self.execute(statement)?;
-        }
-
+        let signal = self.execute_statements(&block.statements)?;
         self.pop_scope();
 
-        Ok(())
+        Ok(signal)
     }
 
-    fn execute_for_statement(&mut self, for_stmt: &ForStmt) -> Result<(), InterpreterError> {
+    fn execute_statements(&mut self, statements: &[Stmt]) -> Result<ExecSignal, InterpreterError> {
+        for statement in statements {
+            match self.execute(&statement)? {
+                ExecSignal::Normal => {}
+                ExecSignal::Return(v) => {
+                    // Early exit out of block.
+                    return Ok(ExecSignal::Return(v));
+                }
+            }
+        }
+
+        Ok(ExecSignal::Normal)
+    }
+
+    fn execute_for_statement(
+        &mut self,
+        for_stmt: &ForStmt,
+    ) -> Result<ExecSignal, InterpreterError> {
         loop {
             let evaluation = self.evaluate(&for_stmt.condition)?;
 
             if let Value::Boolean(b) = evaluation {
                 if b {
-                    self.execute(&for_stmt.body)?;
+                    match self.execute(&for_stmt.body)? {
+                        ExecSignal::Normal => {}
+                        ExecSignal::Return(v) => {
+                            // Early exit out of block.
+                            return Ok(ExecSignal::Return(v));
+                        }
+                    }
                 } else {
                     break;
                 }
@@ -118,7 +145,20 @@ impl Interpreter {
             }
         }
 
-        Ok(())
+        Ok(ExecSignal::Normal)
+    }
+
+    fn execute_return_statement(
+        &mut self,
+        return_stmt: &ReturnStmt,
+    ) -> Result<ExecSignal, InterpreterError> {
+        let value = if let Some(expr) = &return_stmt.expr {
+            Some(self.evaluate(expr)?)
+        } else {
+            None
+        };
+
+        Ok(ExecSignal::Return(value))
     }
 
     fn evaluate(&mut self, expression: &Expr) -> Result<Value, InterpreterError> {
@@ -129,8 +169,8 @@ impl Interpreter {
             Expr::Unary(unary) => self.evaluate_unary_expression(unary),
             Expr::Variable(variable) => self.evaluate_variable_expression(variable),
             Expr::Assign(assign) => self.evaluate_assign_expression(assign),
-            Expr::Call(call) => Ok(self.evaluate_call_expression(call)),
-            Expr::Function(function) => Ok(self.evaluate_function_expression(function)),
+            Expr::Call(call) => self.evaluate_call_expression(call),
+            Expr::Function(function) => self.evaluate_function_expression(function),
         }
     }
 
@@ -200,12 +240,39 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_call_expression(&self, _call: &Call) -> Value {
-        todo!();
+    fn evaluate_call_expression(&mut self, call: &Call) -> Result<Value, InterpreterError> {
+        let callee = self.evaluate(&call.callee)?;
+
+        let arguments = call
+            .args
+            .iter()
+            .map(|a| self.evaluate(a))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // TODO: Validate arity.
+
+        match callee {
+            Value::Callable(c) => c.call(self, arguments),
+            v => Err(self
+                .report_runtime_error(&format!("attempted to call non-function value: {:?}", v))),
+        }
     }
 
-    fn evaluate_function_expression(&self, _function: &Function) -> Value {
-        todo!()
+    fn evaluate_function_expression(
+        &mut self,
+        function: &Function,
+    ) -> Result<Value, InterpreterError> {
+        let callable = CallableFunction::new(function.clone());
+
+        if let TokenKind::Ident(name) = &function.name.kind {
+            self.declare_value(name, Some(Value::Callable(callable.clone())))?;
+        } else {
+            return Err(
+                self.report_runtime_error("unexpected non-ident when executing function statement")
+            );
+        }
+
+        Ok(Value::Callable(callable))
     }
 
     fn declare_value(&mut self, key: &str, value: Option<Value>) -> Result<(), InterpreterError> {
@@ -263,5 +330,69 @@ impl Interpreter {
 impl Default for Interpreter {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+trait Callable {
+    fn call(
+        self,
+        interpreter: &mut Interpreter,
+        args: Vec<Value>,
+    ) -> Result<Value, InterpreterError>;
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+pub struct CallableFunction {
+    function: Function,
+}
+
+impl CallableFunction {
+    fn new(function: Function) -> Self {
+        Self { function }
+    }
+}
+
+impl Callable for CallableFunction {
+    fn call(
+        self,
+        interpreter: &mut Interpreter,
+        args: Vec<Value>,
+    ) -> Result<Value, InterpreterError> {
+        interpreter.push_scope();
+
+        for (i, param) in self.function.params.iter().enumerate() {
+            match &param.name.kind {
+                TokenKind::Ident(identifier) => {
+                    if let Some(value) = args.get(i) {
+                        let _ = interpreter.declare_value(identifier, Some(value.clone()));
+                    } else {
+                        return Err(interpreter.report_runtime_error(&format!(
+                            "missing argument for parameter {:?}",
+                            identifier
+                        )));
+                    }
+                }
+                v => {
+                    return Err(interpreter
+                        .report_runtime_error(&format!("invalid function parameter: {:?}", v)));
+                }
+            }
+        }
+
+        let result = interpreter.execute_statements(&self.function.body);
+
+        interpreter.pop_scope();
+
+        match result? {
+            ExecSignal::Normal => Ok(Value::Unit),
+            ExecSignal::Return(Some(value)) => Ok(value),
+            ExecSignal::Return(None) => Ok(Value::Unit),
+        }
+    }
+}
+
+impl Display for CallableFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "function {:?}", self.function)
     }
 }

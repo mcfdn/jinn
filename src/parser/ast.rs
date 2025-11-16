@@ -1,6 +1,6 @@
 use crate::lexer::token::Token;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum Stmt {
     Expression(Expr),
     Let(LetStmt),
@@ -8,9 +8,10 @@ pub enum Stmt {
     Block(BlockStmt),
     For(ForStmt),
     Print(PrintStmt),
+    Return(ReturnStmt),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum Expr {
     Binary(Binary),
     Grouping(Grouping),
@@ -22,7 +23,7 @@ pub enum Expr {
     Function(Function),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct LetStmt {
     pub name: Token,
     pub type_annotation: Option<Token>,
@@ -39,7 +40,7 @@ impl LetStmt {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct IfStmt {
     pub condition: Expr,
     pub then_branch: Box<Stmt>,
@@ -56,7 +57,7 @@ impl IfStmt {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct BlockStmt {
     pub statements: Vec<Stmt>,
 }
@@ -67,7 +68,7 @@ impl BlockStmt {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct ForStmt {
     pub condition: Expr,
     pub body: Box<Stmt>,
@@ -82,7 +83,7 @@ impl ForStmt {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct PrintStmt {
     pub expr: Box<Expr>,
 }
@@ -95,7 +96,18 @@ impl PrintStmt {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+pub struct ReturnStmt {
+    pub expr: Option<Expr>,
+}
+
+impl ReturnStmt {
+    pub fn new(expr: Option<Expr>) -> Self {
+        Self { expr }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Binary {
     pub left: Box<Expr>,
     pub operator: Token,
@@ -112,7 +124,7 @@ impl Binary {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Grouping {
     pub expr: Box<Expr>,
 }
@@ -125,7 +137,7 @@ impl Grouping {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum Literal {
     Boolean(bool),
     Float(f64),
@@ -133,7 +145,7 @@ pub enum Literal {
     String(String),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Unary {
     pub operator: Token,
     pub right: Box<Expr>,
@@ -148,7 +160,7 @@ impl Unary {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Variable {
     pub name: Token,
 }
@@ -159,7 +171,7 @@ impl Variable {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Assign {
     pub name: Token,
     pub value: Box<Expr>,
@@ -174,7 +186,7 @@ impl Assign {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Call {
     pub callee: Box<Expr>,
     pub args: Vec<Expr>,
@@ -189,9 +201,9 @@ impl Call {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct FunctionParam {
-    name: Token,
+    pub name: Token,
     type_annotation: Token,
 }
 
@@ -204,12 +216,12 @@ impl FunctionParam {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Function {
-    name: Token,
-    params: Vec<FunctionParam>,
+    pub name: Token,
+    pub params: Vec<FunctionParam>,
     return_type: Option<Token>,
-    body: Vec<Stmt>,
+    pub body: Vec<Stmt>,
 }
 
 impl Function {

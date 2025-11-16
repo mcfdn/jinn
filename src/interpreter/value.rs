@@ -3,14 +3,16 @@ use std::{
     ops::{Add, Div, Mul, Neg, Sub},
 };
 
-use crate::interpreter::errors::InterpreterError;
+use crate::interpreter::{CallableFunction, errors::InterpreterError};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum Value {
     Boolean(bool),
+    Callable(CallableFunction),
     Float(f64),
     Int(i64),
     String(String),
+    Unit,
 }
 
 impl Add for Value {
@@ -87,6 +89,8 @@ impl Display for Value {
             Value::Float(v) => write!(f, "{}", v),
             Value::Int(v) => write!(f, "{}", v),
             Value::String(v) => write!(f, "{}", v),
+            Value::Callable(v) => write!(f, "{}", v),
+            Value::Unit => write!(f, "()"),
         }
     }
 }

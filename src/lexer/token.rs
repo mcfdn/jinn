@@ -23,7 +23,7 @@ static TYPE_ANNOTATIONS: LazyLock<HashMap<&'static str, TypeAnnotationKind>> =
         annotations
     });
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub enum KeywordKind {
     Function,
     If,
@@ -34,7 +34,7 @@ pub enum KeywordKind {
     Print,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum LiteralKind {
     Boolean(bool),
     Float(f64),
@@ -42,14 +42,14 @@ pub enum LiteralKind {
     String(String),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub enum TypeAnnotationKind {
     Float,
     Int,
     String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum TokenKind {
     Keyword(KeywordKind),
     Literal(LiteralKind),
@@ -88,7 +88,7 @@ pub enum TokenKind {
     Eof,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Token {
     pub kind: TokenKind,
     pub line: usize,
